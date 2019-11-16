@@ -1,0 +1,6 @@
+PARTNER_ROLE = 1
+ORGANISATION_ROLE = 2
+ROLES = {
+    PARTNER_ROLE: 'Partner',
+    ORGANISATION_ROLE: 'Organisation'
+}
