@@ -1,52 +1,16 @@
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.utils.translation import ugettext_lazy as _
-
 from django.conf import settings
 
+from apps.users import conf
 
-class UserWithRole(models.Model):
-    PARTNER_ROLE = 1
-    ORGANISATION_ROLE = 2
-    SUPERUSER_ROLE = 3
-    ROLES = (
-        (PARTNER_ROLE, 'Partner'),
-        (ORGANISATION_ROLE, 'Organization'),
-        (SUPERUSER_ROLE, 'Superuser')
-    )
-
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    role = models.PositiveIntegerField(_('role'), choices=ROLES)
-
-    class Meta:
-        abstract = True
-
-
-class Partner(UserWithRole):
-    """ Партнеры """
-    def save(self, *args, **kwargs):
-        self.role = self.PARTNER_ROLE
-        super().save(*args, **kwargs)
-
-    class Meta:
-        verbose_name = _('partner')
-        verbose_name_plural = _('partners')
-
-
-class CreditOrganization(UserWithRole):
-    """ Кредитная организация """
-    def save(self, *args, **kwargs):
-        self.role = self.ORGANISATION_ROLE
-        super().save(*args, **kwargs)
-
-    class Meta:
-        verbose_name = _('credit organization')
-        verbose_name_plural = _('credit organizations')
+User = settings.AUTH_USER_MODEL
 
 
 class CustomerProfile(models.Model):
     """ Анкета клиента """
-    partner = models.ForeignKey(Partner, null=True, on_delete=models.SET_NULL)
+    partner = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
     first_name = models.CharField(_('first name'), max_length=128)
     last_name = models.CharField(_('last name'), max_length=128)
     phone = models.CharField(_('phone'), max_length=16, unique=True)
@@ -56,6 +20,15 @@ class CustomerProfile(models.Model):
 
     created = models.DateTimeField(_('created'), auto_now_add=True)
     updated = models.DateTimeField(_('updated'), auto_now=True)
+
+    def clean(self):
+        if self.partner.role not in (conf.PARTNER_ROLE, conf.SUPERUSER_ROLE):
+            raise ValidationError({'organization':
+                                       _('Only user with partner role can do it.')})
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = _('customer profile')
@@ -72,7 +45,7 @@ class LoanOffer(models.Model):
         (MORTGAGE_TYPE, 'Mortgage'),
         (CAR_LOAN_TYPE, 'Car loan')
     )
-    organization = models.ForeignKey(CreditOrganization, null=True, on_delete=models.SET_NULL)
+    organization = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
 
     name = models.CharField(_('first name'), max_length=256)
     start_rotation = models.DateTimeField(_('start of rotation'))
@@ -84,9 +57,17 @@ class LoanOffer(models.Model):
     created = models.DateTimeField(_('created'), auto_now_add=True)
     updated = models.DateTimeField(_('updated'), auto_now=True)
 
+    @property
+    def type_name(self):
+        return [_ for _ in self.LOAN_TYPES if _[0] == self.type][0][1]
+
     def clean(self):
+        if self.organization.role not in (conf.ORGANISATION_ROLE, conf.SUPERUSER_ROLE):
+            raise ValidationError({'organization':
+                                       _('Only user with organization role can do it.')})
         if self.max_scoring_score < self.min_scoring_score:
-            raise ValidationError(_('The maximum scoring score should be more than the minimum scoring score'))
+            raise ValidationError({'max_scoring_score':
+                                       _('The maximum scoring score should be more than the minimum scoring score.')})
 
     def save(self, *args, **kwargs):
         self.full_clean()
@@ -98,6 +79,7 @@ class LoanOffer(models.Model):
 
 
 class LoanRequest(models.Model):
+    """ Кредитная заявка """
     NEW_STATUS = 1
     SENT_STATUS = 2
     RECEIVED_STATUS = 3
@@ -115,5 +97,17 @@ class LoanRequest(models.Model):
     customer = models.ForeignKey(CustomerProfile, on_delete=models.CASCADE)
     offer = models.ForeignKey(LoanOffer, on_delete=models.CASCADE)
     status = models.PositiveIntegerField(_('status'), choices=STATUS_TYPES)
-    send = models.DateTimeField(_('sending date'))
+    sent = models.DateTimeField(_('sending date'))
     created = models.DateTimeField(_('created'), auto_now_add=True)
+
+    @property
+    def type_name(self):
+        return [_ for _ in self.STATUS_TYPES if _[0] == self.status][0][1]
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = _('loan request')
+        verbose_name_plural = _('loan request')
