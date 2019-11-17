@@ -19,7 +19,7 @@
     # Выполнить миграции
     >>> python manage.py migrate
     # Запустить
-    >>> set DJANGO_SETTINGS_MODULE=mysite.settings | export DJANGO_SETTINGS_MODULE=mysite.settings
+    >>> set DJANGO_SETTINGS_MODULE=project.settings | export DJANGO_SETTINGS_MODULE=project.settings
     >>> python manage.py runserver
     
 ### Демонстрация работы:
