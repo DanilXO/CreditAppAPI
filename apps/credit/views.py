@@ -14,18 +14,18 @@ class ApiRoot(APIView):
     """ Возвращающает список всех конечных точек. """
     @staticmethod
     def get(request, format=None):
+        response_data = {}
         if request.user.is_authenticated:
-            response_data = {
-                'customer-profiles': reverse('credit:customer-profiles-list', request=request, format=format),
-                'loan-offers': reverse('credit:loan-offers-list', request=request, format=format),
-                'loan-requests': reverse('credit:loan-requests-list', request=request, format=format),
-                'logout': reverse('rest_framework:logout', request=request, format=format),
-            }
+            response_data['logout'] = reverse('rest_framework:logout', request=request, format=format)
+            if request.user.role in (conf.SUPERUSER_ROLE, conf.PARTNER_ROLE):
+                response_data['customer-profiles'] = reverse('credit:customer-profiles-list', request=request,
+                                                             format=format)
+            response_data['loan-offers'] = reverse('credit:loan-offers-list', request=request, format=format)
+            response_data['loan-requests'] = reverse('credit:loan-requests-list', request=request, format=format)
+
         else:
-            response_data = {
-                'sign-up': reverse('users:sign-up', request=request, format=format),
-                'login': reverse('rest_framework:login', request=request, format=format),
-            }
+            response_data['sign-up'] = reverse('users:sign-up', request=request, format=format)
+            response_data['login'] = reverse('rest_framework:login', request=request, format=format)
         return Response(response_data)
 
 

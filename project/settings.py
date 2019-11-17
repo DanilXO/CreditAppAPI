@@ -23,6 +23,7 @@ ALLOWED_HOSTS = []
 AUTH_USER_MODEL = 'users.UserWithRole'
 
 INSTALLED_APPS = [
+    'suit',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -126,3 +127,7 @@ REST_FRAMEWORK = {
 }
 
 OLD_PASSWORD_FIELD_ENABLED = True
+
+SUIT_CONFIG = {
+    'ADMIN_NAME': 'Credit app by Frolov Daniil'
+}

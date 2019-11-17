@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 from django.utils.translation import ugettext_lazy as _
 from django.conf import settings
 
@@ -21,18 +22,28 @@ class CustomerProfile(models.Model):
     created = models.DateTimeField(_('created'), auto_now_add=True)
     updated = models.DateTimeField(_('updated'), auto_now=True)
 
+    @property
+    def partner_name(self):
+        if self.partner is not None:
+            return self.partner.username
+        else:
+            return "Deleted partner"
+
     def clean(self):
         if self.partner.role not in (conf.PARTNER_ROLE, conf.SUPERUSER_ROLE):
-            raise ValidationError({'organization':
-                                       _('Only user with partner role can do it.')})
+            raise ValidationError({'organization': _('Only user with partner role can do it.')})
 
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"from {self.partner_name} : Customer: {self.first_name} {self.last_name}"
+
     class Meta:
         verbose_name = _('customer profile')
         verbose_name_plural = _('customer profiles')
+        ordering = ('-created', '-updated')
 
 
 class LoanOffer(models.Model):
@@ -47,7 +58,7 @@ class LoanOffer(models.Model):
     )
     organization = models.ForeignKey(User, null=True, on_delete=models.SET_NULL)
 
-    name = models.CharField(_('first name'), max_length=256)
+    name = models.CharField(_('name'), max_length=256)
     start_rotation = models.DateTimeField(_('start of rotation'))
     end_rotation = models.DateTimeField(_('end of rotation'))
     min_scoring_score = models.PositiveIntegerField(_('min scoring score'))
@@ -61,6 +72,13 @@ class LoanOffer(models.Model):
     def type_name(self):
         return [_ for _ in self.LOAN_TYPES if _[0] == self.type][0][1]
 
+    @property
+    def organization_name(self):
+        if self.organization is not None:
+            return self.organization.username
+        else:
+            return "Deleted organization"
+
     def clean(self):
         if self.organization.role not in (conf.ORGANISATION_ROLE, conf.SUPERUSER_ROLE):
             raise ValidationError({'organization':
@@ -73,9 +91,14 @@ class LoanOffer(models.Model):
         self.full_clean()
         super().save(*args, **kwargs)
 
+    def __str__(self):
+        return f"from {self.organization_name} : Loan offer \"{self.name}\" from {self.start_rotation} to " \
+               f"{self.end_rotation}"
+
     class Meta:
         verbose_name = _('loan offer')
         verbose_name_plural = _('loan offers')
+        ordering = ('-created', '-updated')
 
 
 class LoanRequest(models.Model):
@@ -97,17 +120,37 @@ class LoanRequest(models.Model):
     customer = models.ForeignKey(CustomerProfile, on_delete=models.CASCADE)
     offer = models.ForeignKey(LoanOffer, on_delete=models.CASCADE)
     status = models.PositiveIntegerField(_('status'), choices=STATUS_TYPES)
-    sent = models.DateTimeField(_('sending date'))
+    __prev_status = None
+    sent = models.DateTimeField(_('sending date'), blank=True, null=True)
     created = models.DateTimeField(_('created'), auto_now_add=True)
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__prev_status = self.status
+
     @property
-    def type_name(self):
+    def status_name(self):
         return [_ for _ in self.STATUS_TYPES if _[0] == self.status][0][1]
+
+    @property
+    def customer_name(self):
+        return f"{self.customer.first_name} {self.customer.last_name}"
+
+    @property
+    def offer_name(self):
+        return f"{self.offer.name}"
 
     def save(self, *args, **kwargs):
         self.full_clean()
+        if self.status != self.__prev_status and self.status == self.SENT_STATUS:
+            self.sent = timezone.now()
         super().save(*args, **kwargs)
+        self.__prev_status = self.status
+
+    def __str__(self):
+        return f" Loan request: \"Customer {self.customer}, Loan offer: {self.offer}\" "
 
     class Meta:
         verbose_name = _('loan request')
         verbose_name_plural = _('loan request')
+        ordering = ('-created',)

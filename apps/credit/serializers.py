@@ -1,5 +1,6 @@
 
 from rest_framework import serializers
+from rest_framework.exceptions import PermissionDenied
 
 from apps.credit import models
 from apps.credit.mixins import ValidateModelMixin
@@ -9,6 +10,21 @@ from apps.users.serializers import UserDetailSerializer
 
 
 class CustomerProfileSerializer(ValidateModelMixin, serializers.ModelSerializer):
+    def get_fields(self, *args, **kwargs):
+        """ Динамически убираем поле выбора partner """
+        fields = super(CustomerProfileSerializer, self).get_fields()
+        request = self.context.get('request', None)
+        if role_is(request.user, conf.PARTNER_ROLE):
+            fields.pop('partner')
+        return fields
+
+    def validate(self, validated_data):
+        """ Валидация данных с автомотической подменой partner на текущего user """
+        request = self.context.get('request', None)
+        if role_is(request.user, conf.PARTNER_ROLE) and validated_data.get('partner') is None:
+            validated_data['partner'] = request.user
+        return validated_data
+
     class Meta:
         model = models.CustomerProfile
         fields = ('id', 'partner', 'first_name', 'last_name', 'phone', 'email', 'passport',
@@ -16,7 +32,7 @@ class CustomerProfileSerializer(ValidateModelMixin, serializers.ModelSerializer)
         read_only_fields = ('id', 'created', 'updated',)
 
 
-class CustomerProfileDetailSerializer(ValidateModelMixin, serializers.ModelSerializer):
+class CustomerProfileDetailSerializer(CustomerProfileSerializer):
     partner = UserDetailSerializer(read_only=True)
 
 
@@ -39,25 +55,21 @@ class LoanOfferDetailSerializer(LoanOfferSerializer):
 
 class LoanRequestSerializer(ValidateModelMixin, serializers.ModelSerializer):
 
-    def get_fields(self):
-        self.read_only_fields = ('id', 'customer', 'offer', 'sent', 'created')
-        return super().get_fields()
-
-    def get_extra_kwargs(self):
-        extra_kwargs = super().get_extra_kwargs()
-        if role_is(self.context['request'].user, conf.ORGANISATION_ROLE):
-            read_only_fields = ('id', 'customer', 'offer', 'sent', 'created')
-            for field in read_only_fields:
-                extra_kwargs[field] = {'read_only': True}
-        return extra_kwargs
+    def validate(self, attrs):
+        request = self.context.get('request', None)
+        if request and role_is(request.user, conf.ORGANISATION_ROLE) and \
+                not(len(attrs) == 1 and attrs.get('status')):
+            raise PermissionDenied('You do not have permission to perform this action. '
+                                   'You can only change the status of the Loan request.')
+        return attrs
 
     class Meta:
-        model = models.LoanOffer
+        model = models.LoanRequest
         fields = ('id', 'customer', 'offer', 'status', 'sent', 'created')
         read_only_fields = ('id', 'created')
 
 
-class LoanRequestDetailSerializer(LoanOfferSerializer):
+class LoanRequestDetailSerializer(LoanRequestSerializer):
     customer = CustomerProfileDetailSerializer(read_only=True)
     offer = LoanOfferDetailSerializer(read_only=True)
     status = serializers.SerializerMethodField()

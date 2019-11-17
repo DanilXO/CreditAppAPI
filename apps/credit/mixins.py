@@ -39,7 +39,7 @@ class CustomMethodsAPIMixin(PermissionAPIMixin, generics.GenericAPIView):
 
 
 class ValidateModelMixin:
-    """ Миксин для обработки django.core.exceptions.ValidationError
+    """ Миксин для обработки django.admin.exceptions.ValidationError
     и пробрасывания rest_framework.exceptions.ValidationError
     """
     def update(self, *args, **kwargs):
