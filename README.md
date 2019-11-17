@@ -1,7 +1,7 @@
 # CreditAppAPI
 
 ### Описание:
-   Решение задания тестового [задания]( https://drive.google.com/file/d/1-EjUNBoZ2C1To-ktfDTp8mXzejQtrLbD/view?usp=sharing).
+   Решение тестового [задания]( https://drive.google.com/file/d/1-EjUNBoZ2C1To-ktfDTp8mXzejQtrLbD/view?usp=sharing).
    API реализовано с помощью Django и Django REST framework.
    Для реализации более красивой и удобной админки использовал django-suit==0.2.26.
    При разработке использовал Python 3.6
