@@ -5,10 +5,6 @@ from rest_framework.permissions import IsAuthenticated
 from apps.credit.permissions import HasRolePermission
 from rest_framework.exceptions import ValidationError as RestValidationError
 
-PARTNER_ROLE = 1
-ORGANISATION_ROLE = 2
-SUPERUSER_ROLE = 3
-
 
 class PermissionAPIMixin(generics.GenericAPIView):
     """ Mixin добавляющий default ограничения на все методы """
